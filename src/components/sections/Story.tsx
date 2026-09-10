@@ -22,8 +22,7 @@ export default function Story() {
 
   useEffect(() => {
     return scrollYProgress.on("change", (v) => {
-      // Tighter range — tree grows faster and is fully visible mid-scroll
-      setProgress(Math.min(1, Math.max(0, (v - 0.05) / 0.45)));
+      setProgress(Math.min(1, Math.max(0, (v - 0.1) / 0.65)));
     });
   }, [scrollYProgress]);
 
@@ -51,7 +50,7 @@ export default function Story() {
             viewport={{ once: true }} transition={{ duration: 0.8 }}
             className="relative rounded-3xl overflow-hidden"
             style={{
-              height: 560,
+              height: 480,
               background: "rgba(255,255,255,0.02)",
               border: "1px solid rgba(255,255,255,0.06)",
               backdropFilter: "blur(12px)",
