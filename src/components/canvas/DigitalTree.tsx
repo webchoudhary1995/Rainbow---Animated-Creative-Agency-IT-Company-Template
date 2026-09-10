@@ -2,118 +2,45 @@
 
 import { useEffect, useRef } from "react";
 
-// Trunk & branch brown tones
-const TRUNK_COLOR = [101, 67, 33] as const;
+/* ─── Service icons as Unicode symbols shown on branch tips ─── */
+const SERVICE_ICONS = ["🌐", "⚙️", "📱", "🤖", "🎨", "☁️", "📈"];
+const SERVICE_LABELS = [
+  "Web Dev", "Backend", "Mobile",
+  "AI / ML", "UI/UX", "Cloud", "SEO",
+];
 
-// Leaf greens — lush, multi-shade
-const LEAF_GREENS = [
-  [0,   200,  83],
-  [34,  197,  94],
-  [22,  163,  74],
-  [74,  222, 128],
-  [16,  185, 129],
-  [0,   230,  64],
-  [134, 239, 172],
-] as const;
-
-// Rainbow accent for orbs / beams
+/* ─── Rainbow palette ─── */
 const RAINBOW = [
-  [255, 59,  59 ],
-  [255, 140,  0 ],
-  [255, 215,  0 ],
-  [0,   200,  83],
-  [2,   136, 209],
-  [92,  107, 192],
-  [124,  77, 255],
-] as const;
+  "#FF3B3B", "#FF8C00", "#FFD700",
+  "#00C853", "#0288D1", "#5C6BC0", "#7C4DFF",
+];
 
-interface Leaf {
-  x: number; y: number;
-  r: number;
-  ci: number;       // leaf green index
+/* ─── Leaf green shades ─── */
+const GREENS = [
+  "#00e676", "#69f0ae", "#00c853",
+  "#b9f6ca", "#1de9b6", "#76ff03", "#ccff90",
+];
+
+interface TipNode {
+  x: number;
+  y: number;
+  colorIdx: number;
+  iconIdx: number;
   alpha: number;
-  pulse: number;
-  swing: number;    // horizontal sway offset
-}
-
-interface Branch {
-  x1: number; y1: number;
-  x2: number; y2: number;
-  thickness: number;
   depth: number;
-  alpha: number;
-  leaves: Leaf[];
 }
 
-function buildBranches(
-  cx: number, cy: number, scale: number, progress: number
-): Branch[] {
-  const branches: Branch[] = [];
-  let leafSeed = 0;
-
-  function rand(seed: number) {
-    // deterministic pseudo-random so tree stays stable
-    const x = Math.sin(seed * 9301 + 49297) * 233280;
-    return x - Math.floor(x);
-  }
-
-  function branch(
-    x: number, y: number,
-    angle: number, len: number,
-    depth: number, maxDepth: number
-  ) {
-    if (depth > maxDepth || len < 3) return;
-    const depthRatio = depth / maxDepth;
-    if (depthRatio > progress * 1.35) return;
-
-    const nodeAlpha = Math.min(1, (progress * 1.35 - depthRatio) * 2.5);
-    const ex = x + Math.cos(angle) * len * scale;
-    const ey = y + Math.sin(angle) * len * scale;
-    const thickness = Math.max(0.8, (maxDepth - depth + 1) * 2.2 - depth * 0.6);
-
-    // Build leaves for tip branches
-    const leaves: Leaf[] = [];
-    if (depth >= maxDepth - 1) {
-      const leafCount = 3 + Math.floor(rand(leafSeed++) * 5);
-      for (let l = 0; l < leafCount; l++) {
-        const spread = 28 * scale;
-        const lx = ex + (rand(leafSeed++) - 0.5) * spread;
-        const ly = ey + (rand(leafSeed++) - 0.5) * spread * 0.7 - rand(leafSeed++) * 14 * scale;
-        leaves.push({
-          x: lx, y: ly,
-          r: (4 + rand(leafSeed++) * 6) * scale,
-          ci: Math.floor(rand(leafSeed++) * LEAF_GREENS.length),
-          alpha: nodeAlpha * (0.7 + rand(leafSeed++) * 0.3),
-          pulse: rand(leafSeed++) * Math.PI * 2,
-          swing: rand(leafSeed++) * Math.PI * 2,
-        });
-      }
-    }
-
-    branches.push({ x1: x, y1: y, x2: ex, y2: ey, thickness, depth, alpha: nodeAlpha, leaves });
-
-    const spreadAngle = 0.38 + depth * 0.045;
-    const lenDecay    = 0.66 + rand(leafSeed++) * 0.08;
-    branch(ex, ey, angle - spreadAngle,        len * lenDecay,        depth + 1, maxDepth);
-    branch(ex, ey, angle + spreadAngle,        len * (lenDecay - 0.04), depth + 1, maxDepth);
-    if (depth < 3) {
-      branch(ex, ey, angle - spreadAngle * 0.25, len * (lenDecay - 0.06), depth + 1, maxDepth);
-    }
-    if (depth < 2) {
-      branch(ex, ey, angle + spreadAngle * 0.55, len * (lenDecay - 0.1),  depth + 1, maxDepth);
-    }
-  }
-
-  const maxD = Math.min(7, Math.max(2, Math.floor(7 * progress)));
-  branch(cx, cy, -Math.PI / 2, 62, 0, maxD);
-  return branches;
+/* ─── Deterministic pseudo-random ─── */
+function pr(seed: number) {
+  const x = Math.sin(seed + 1) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 export default function DigitalTree({ progress }: { progress: number }) {
-  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
   const progressRef = useRef(progress);
-  const rafRef     = useRef(0);
-  const tRef       = useRef(0);
+  const rafRef      = useRef(0);
+  const tRef        = useRef(0);
 
   useEffect(() => { progressRef.current = progress; }, [progress]);
 
@@ -123,6 +50,7 @@ export default function DigitalTree({ progress }: { progress: number }) {
     const raw = canvas.getContext("2d");
     if (!raw) return;
     const ctx: CanvasRenderingContext2D = raw;
+
     let W = 0, H = 0;
 
     function resize() {
@@ -130,166 +58,236 @@ export default function DigitalTree({ progress }: { progress: number }) {
       H = canvas!.height = canvas!.offsetHeight;
     }
 
+    // ─── Draw a single round leaf cluster ───
+    function drawLeafCluster(
+      cx: number, cy: number,
+      radius: number, alpha: number,
+      greenIdx: number, t: number, seed: number
+    ) {
+      const count = 8;
+      for (let i = 0; i < count; i++) {
+        const a   = (i / count) * Math.PI * 2 + Math.sin(t * 0.015 + seed) * 0.2;
+        const r   = radius * (0.55 + pr(seed + i) * 0.6);
+        const lx  = cx + Math.cos(a) * r;
+        const ly  = cy + Math.sin(a) * r * 0.75;
+        const lr  = (radius * 0.42 + pr(seed + i + 100) * radius * 0.22);
+        const col = GREENS[(greenIdx + i) % GREENS.length];
+
+        // Leaf glow
+        const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr * 2.5);
+        g.addColorStop(0,   hexAlpha(col, alpha * 0.55));
+        g.addColorStop(0.5, hexAlpha(col, alpha * 0.18));
+        g.addColorStop(1,   hexAlpha(col, 0));
+        ctx.beginPath();
+        ctx.arc(lx, ly, lr * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+
+        // Leaf body
+        ctx.save();
+        ctx.translate(lx, ly);
+        ctx.rotate(a + t * 0.008 + seed);
+        ctx.beginPath();
+        ctx.ellipse(0, 0, lr, lr * 0.55, 0, 0, Math.PI * 2);
+        ctx.fillStyle = hexAlpha(col, alpha * 0.82);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      // Centre dense cluster
+      const cg = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * 0.65);
+      cg.addColorStop(0,   hexAlpha(GREENS[greenIdx], alpha * 0.7));
+      cg.addColorStop(1,   hexAlpha(GREENS[greenIdx], 0));
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius * 0.65, 0, Math.PI * 2);
+      ctx.fillStyle = cg;
+      ctx.fill();
+    }
+
+    // ─── Draw service icon (emoji + label) at a tip node ───
+    function drawServiceIcon(
+      x: number, y: number, iconIdx: number,
+      color: string, alpha: number, t: number, scale: number
+    ) {
+      if (alpha < 0.08) return;
+      const bob  = Math.sin(t * 0.04 + iconIdx * 1.1) * 4 * scale;
+      const iy   = y + bob - 28 * scale;
+      const ix   = x;
+      const sz   = Math.max(16, 26 * scale);
+
+      // Glowing halo behind icon
+      const halo = ctx.createRadialGradient(ix, iy, 0, ix, iy, sz * 2.2);
+      halo.addColorStop(0,   hexAlpha(color, alpha * 0.45));
+      halo.addColorStop(0.5, hexAlpha(color, alpha * 0.12));
+      halo.addColorStop(1,   hexAlpha(color, 0));
+      ctx.beginPath();
+      ctx.arc(ix, iy, sz * 2.2, 0, Math.PI * 2);
+      ctx.fillStyle = halo;
+      ctx.fill();
+
+      // Circle background
+      ctx.beginPath();
+      ctx.arc(ix, iy, sz * 0.9, 0, Math.PI * 2);
+      ctx.fillStyle = hexAlpha("#020617", alpha * 0.85);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ix, iy, sz * 0.9, 0, Math.PI * 2);
+      ctx.strokeStyle = hexAlpha(color, alpha * 0.9);
+      ctx.lineWidth   = 2 * scale;
+      ctx.stroke();
+
+      // Emoji
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.font        = `${sz * 0.9}px serif`;
+      ctx.textAlign   = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(SERVICE_ICONS[iconIdx % SERVICE_ICONS.length], ix, iy);
+
+      // Label below
+      ctx.font        = `bold ${Math.max(9, 11 * scale)}px Inter,sans-serif`;
+      ctx.fillStyle   = color;
+      ctx.textAlign   = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(SERVICE_LABELS[iconIdx % SERVICE_LABELS.length], ix, iy + sz * 1.1);
+      ctx.restore();
+    }
+
+    // ─── Recursive branch draw ───
+    function drawBranch(
+      x1: number, y1: number,
+      angle: number, len: number,
+      depth: number, maxDepth: number,
+      branchSeed: number,
+      tips: TipNode[]
+    ) {
+      if (depth > maxDepth || len < 5) return;
+
+      const x2      = x1 + Math.cos(angle) * len;
+      const y2      = y1 + Math.sin(angle) * len;
+      const thick   = Math.max(0.8, (maxDepth - depth + 1) * 3.5 - depth * 0.8);
+      const colIdx  = depth % RAINBOW.length;
+      const col     = RAINBOW[colIdx];
+      const p       = progressRef.current;
+      const depthFrac = depth / maxDepth;
+      const alpha   = Math.min(1, Math.max(0, (p * 1.4 - depthFrac) * 2.8));
+
+      if (alpha <= 0) return;
+
+      const t = tRef.current;
+      const sway = depth > 0
+        ? Math.sin(t * 0.016 + depth * 0.7 + branchSeed) * depth * 2.2
+        : 0;
+      const ex = x2 + sway;
+      const ey = y2;
+
+      // Branch line — brown trunk, rainbow neon edge glow
+      const brownR = Math.max(40,  101 - depth * 8);
+      const brownG = Math.max(20,   67 - depth * 6);
+      const brownB = Math.max(10,   33 - depth * 4);
+
+      // Glow
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(ex, ey);
+      ctx.strokeStyle = hexAlpha(col, alpha * 0.22);
+      ctx.lineWidth   = thick * 3.5;
+      ctx.lineCap     = "round";
+      ctx.stroke();
+
+      // Core trunk
+      const bg = ctx.createLinearGradient(x1, y1, ex, ey);
+      bg.addColorStop(0, `rgba(${brownR},${brownG},${brownB},${alpha})`);
+      bg.addColorStop(1, `rgba(${Math.min(255, brownR + 20)},${Math.min(130, brownG + 50)},${Math.min(50, brownB + 10)},${alpha * 0.85})`);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(ex, ey);
+      ctx.strokeStyle = bg;
+      ctx.lineWidth   = thick;
+      ctx.lineCap     = "round";
+      ctx.stroke();
+
+      // Tip leaf clusters & icons
+      if (depth >= maxDepth - 1) {
+        const leafAlpha = Math.min(1, Math.max(0, (p * 1.4 - depthFrac) * 3.5));
+        if (leafAlpha > 0.05) {
+          const leafR = Math.max(14, (maxDepth - depth + 2) * 9 * (W / 500));
+          drawLeafCluster(ex, ey, leafR, leafAlpha, colIdx, t, branchSeed * 17 + depth);
+          tips.push({ x: ex, y: ey, colorIdx: colIdx, iconIdx: colIdx, alpha: leafAlpha, depth });
+        }
+      }
+
+      // Recurse
+      const spreadBase = 0.36 + depth * 0.042;
+      const lenDecay   = 0.64 + pr(branchSeed + depth) * 0.09;
+      drawBranch(ex, ey, angle - spreadBase,        len * lenDecay,        depth + 1, maxDepth, branchSeed + 1,  tips);
+      drawBranch(ex, ey, angle + spreadBase,        len * (lenDecay - 0.04), depth + 1, maxDepth, branchSeed + 3,  tips);
+      if (depth < 3) {
+        drawBranch(ex, ey, angle - spreadBase * 0.4, len * (lenDecay - 0.07), depth + 1, maxDepth, branchSeed + 7,  tips);
+      }
+      if (depth < 2) {
+        drawBranch(ex, ey, angle + spreadBase * 0.6, len * (lenDecay - 0.1),  depth + 1, maxDepth, branchSeed + 11, tips);
+      }
+    }
+
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      const p   = progressRef.current;
-      const t   = tRef.current;
-      const cx  = W / 2;
-      const cy  = H * 0.9;
-      const sc  = Math.min(W, H) / 380;
+      const p  = progressRef.current;
+      const t  = tRef.current;
+      const cx = W / 2;
+      const cy = H - 30;
+      const sc = Math.min(W, H) / 480;
 
       // ── Ground glow ──
-      const gg = ctx.createRadialGradient(cx, cy, 0, cx, cy, W * 0.4);
-      gg.addColorStop(0,   "rgba(0,200,83,0.12)");
-      gg.addColorStop(0.5, "rgba(0,200,83,0.04)");
+      const gg = ctx.createRadialGradient(cx, cy, 0, cx, cy, W * 0.45);
+      gg.addColorStop(0,   "rgba(0,200,83,0.18)");
+      gg.addColorStop(0.5, "rgba(0,200,83,0.05)");
       gg.addColorStop(1,   "transparent");
       ctx.fillStyle = gg;
       ctx.fillRect(0, 0, W, H);
 
-      // ── Trunk base glow ──
-      const tg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 60 * sc);
-      tg.addColorStop(0,   "rgba(0,200,83,0.18)");
-      tg.addColorStop(1,   "transparent");
-      ctx.fillStyle = tg;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 60 * sc, 0, Math.PI * 2);
-      ctx.fill();
+      // ── Draw tree ──
+      const tips: TipNode[] = [];
+      const maxD = Math.min(7, Math.max(1, Math.round(7 * p)));
+      const trunkLen = 90 * sc;
+      drawBranch(cx, cy, -Math.PI / 2, trunkLen, 0, maxD, 42, tips);
 
-      const branches = buildBranches(cx, cy, sc, p);
-
-      // ── Draw branches (trunk color, thicker near root) ──
-      for (const b of branches) {
-        const sway = Math.sin(t * 0.018 + b.depth * 0.4) * (b.depth * 1.5) * sc;
-        const ex2  = b.x2 + sway;
-        const ey2  = b.y2;
-
-        // Trunk gradient: brown → greenish at tips
-        const bg = ctx.createLinearGradient(b.x1, b.y1, ex2, ey2);
-        const depthFrac = b.depth / 7;
-        const r1 = TRUNK_COLOR[0], g1 = TRUNK_COLOR[1], bv1 = TRUNK_COLOR[2];
-        const r2 = Math.round(r1 + (0   - r1) * depthFrac * 0.6);
-        const g2 = Math.round(g1 + (160 - g1) * depthFrac * 0.6);
-        const b2 = Math.round(bv1 + (60  - bv1) * depthFrac * 0.4);
-
-        bg.addColorStop(0, `rgba(${r1},${g1},${bv1},${b.alpha * 0.9})`);
-        bg.addColorStop(1, `rgba(${r2},${g2},${b2},${b.alpha * 0.7})`);
-
-        ctx.beginPath();
-        ctx.moveTo(b.x1, b.y1);
-        ctx.lineTo(ex2, ey2);
-        ctx.strokeStyle = bg;
-        ctx.lineWidth   = b.thickness;
-        ctx.lineCap     = "round";
-        ctx.stroke();
-
-        // Rainbow neon edge glow on branches (subtle)
-        const rc = RAINBOW[b.depth % RAINBOW.length];
-        ctx.beginPath();
-        ctx.moveTo(b.x1, b.y1);
-        ctx.lineTo(ex2, ey2);
-        ctx.strokeStyle = `rgba(${rc[0]},${rc[1]},${rc[2]},${b.alpha * 0.12})`;
-        ctx.lineWidth   = b.thickness * 2.5;
-        ctx.stroke();
-
-        // ── Draw leaves ──
-        for (const lf of b.leaves) {
-          const pulse = 1 + Math.sin(t * 0.035 + lf.pulse) * 0.18;
-          const swayX = Math.sin(t * 0.022 + lf.swing) * 4 * sc;
-          const swayY = Math.cos(t * 0.018 + lf.swing) * 2 * sc;
-          const lx    = lf.x + sway + swayX;
-          const ly    = lf.y + swayY;
-          const lr    = lf.r * pulse;
-
-          const [gr, gg2, gb] = LEAF_GREENS[lf.ci];
-
-          // Outer glow
-          const leafGlow = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr * 4);
-          leafGlow.addColorStop(0,   `rgba(${gr},${gg2},${gb},${lf.alpha * 0.35})`);
-          leafGlow.addColorStop(0.5, `rgba(${gr},${gg2},${gb},${lf.alpha * 0.1})`);
-          leafGlow.addColorStop(1,   `rgba(${gr},${gg2},${gb},0)`);
-          ctx.beginPath();
-          ctx.arc(lx, ly, lr * 4, 0, Math.PI * 2);
-          ctx.fillStyle = leafGlow;
-          ctx.fill();
-
-          // Leaf body — ellipse
-          ctx.save();
-          ctx.translate(lx, ly);
-          ctx.rotate(lf.swing + t * 0.008);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, lr, lr * 0.6, 0, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${gr},${gg2},${gb},${lf.alpha * 0.85})`;
-          ctx.fill();
-          // Leaf vein
-          ctx.beginPath();
-          ctx.moveTo(-lr * 0.7, 0);
-          ctx.lineTo( lr * 0.7, 0);
-          ctx.strokeStyle = `rgba(${gr},${gg2},${gb},${lf.alpha * 0.4})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-          ctx.restore();
-        }
+      // ── Draw service icons on tip nodes (after all branches) ──
+      for (const tip of tips) {
+        drawServiceIcon(tip.x, tip.y, tip.iconIdx, RAINBOW[tip.colorIdx], tip.alpha, t, sc);
       }
 
-      // ── Rainbow sparkle particles on canopy ──
-      if (p > 0.4) {
-        const sparkCount = Math.floor(p * 18);
-        for (let i = 0; i < sparkCount; i++) {
-          const angle  = (i / sparkCount) * Math.PI * 2 + t * 0.01;
-          const radius = (60 + i * 8) * sc * p;
-          const px2    = cx + Math.cos(angle) * radius;
-          const py2    = cy - (H * 0.35 * p) + Math.sin(angle * 2) * radius * 0.4;
-          const [sr, sg, sb] = RAINBOW[i % RAINBOW.length];
-          const sparklePulse = 0.5 + Math.sin(t * 0.06 + i * 1.1) * 0.5;
-          const sr2 = (1.5 + sparklePulse * 2.5) * sc;
-
-          const spGlow = ctx.createRadialGradient(px2, py2, 0, px2, py2, sr2 * 5);
-          spGlow.addColorStop(0,   `rgba(${sr},${sg},${sb},${sparklePulse * 0.7})`);
-          spGlow.addColorStop(1,   `rgba(${sr},${sg},${sb},0)`);
-          ctx.beginPath();
-          ctx.arc(px2, py2, sr2 * 5, 0, Math.PI * 2);
-          ctx.fillStyle = spGlow;
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(px2, py2, sr2, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(${sr},${sg},${sb},${sparklePulse * 0.9})`;
-          ctx.fill();
-        }
-      }
-
-      // ── Floating rainbow light orbs (bird-like drifters) ──
+      // ── Floating rainbow light orbs ──
       for (let i = 0; i < 7; i++) {
-        const [r, g, bv] = RAINBOW[i];
-        const speed = 0.35 + i * 0.12;
-        const ox    = ((t * speed * 0.7 + i * (W / 7)) % (W + 140)) - 70;
-        const oy    = H * 0.25 + Math.sin(t * 0.022 + i * 1.1) * H * 0.1 + i * 16;
-        const sz    = (2.5 + Math.sin(t * 0.04 + i * 0.8) * 1.2) * sc;
-        const alpha = 0.45 + Math.sin(t * 0.03 + i) * 0.25;
+        const col   = RAINBOW[i];
+        const speed = 0.3 + i * 0.1;
+        const ox    = ((t * speed * 0.65 + i * (W / 7)) % (W + 120)) - 60;
+        const oy    = H * 0.22 + Math.sin(t * 0.02 + i * 1.1) * H * 0.08 + i * 14;
+        const sz    = (2 + Math.sin(t * 0.04 + i * 0.8) * 1) * sc;
+        const alpha = 0.4 + Math.sin(t * 0.03 + i) * 0.22;
 
-        const orbGlow = ctx.createRadialGradient(ox, oy, 0, ox, oy, sz * 9);
-        orbGlow.addColorStop(0,   `rgba(${r},${g},${bv},${alpha * 0.55})`);
-        orbGlow.addColorStop(0.4, `rgba(${r},${g},${bv},${alpha * 0.12})`);
-        orbGlow.addColorStop(1,   `rgba(${r},${g},${bv},0)`);
+        const og = ctx.createRadialGradient(ox, oy, 0, ox, oy, sz * 9);
+        og.addColorStop(0,   hexAlpha(col, alpha * 0.6));
+        og.addColorStop(0.4, hexAlpha(col, alpha * 0.1));
+        og.addColorStop(1,   hexAlpha(col, 0));
         ctx.beginPath();
         ctx.arc(ox, oy, sz * 9, 0, Math.PI * 2);
-        ctx.fillStyle = orbGlow;
+        ctx.fillStyle = og;
         ctx.fill();
 
         ctx.beginPath();
         ctx.arc(ox, oy, sz, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r},${g},${bv},${alpha})`;
+        ctx.fillStyle = hexAlpha(col, alpha);
         ctx.fill();
 
-        // Trail
-        const trail = ctx.createLinearGradient(ox - speed * 22, oy, ox, oy);
-        trail.addColorStop(0, `rgba(${r},${g},${bv},0)`);
-        trail.addColorStop(1, `rgba(${r},${g},${bv},${alpha * 0.45})`);
+        const trail = ctx.createLinearGradient(ox - speed * 20, oy, ox, oy);
+        trail.addColorStop(0, hexAlpha(col, 0));
+        trail.addColorStop(1, hexAlpha(col, alpha * 0.4));
         ctx.beginPath();
-        ctx.moveTo(ox - speed * 22, oy);
+        ctx.moveTo(ox - speed * 20, oy);
         ctx.lineTo(ox, oy);
         ctx.strokeStyle = trail;
-        ctx.lineWidth   = sz * 0.8;
+        ctx.lineWidth   = sz;
         ctx.stroke();
       }
 
@@ -308,7 +306,15 @@ export default function DigitalTree({ progress }: { progress: number }) {
     <canvas
       ref={canvasRef}
       className="w-full h-full"
-      aria-label="Lush digital tree with rainbow sparkles and floating orbs"
+      aria-label="Growing digital tree with service icons"
     />
   );
+}
+
+/* ─── hex color to rgba with alpha ─── */
+function hexAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
 }
