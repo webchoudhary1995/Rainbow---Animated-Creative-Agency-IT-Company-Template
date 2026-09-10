@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { Inter, Syne } from "next/font/google";
 import "./globals.css";
+import dynamic from "next/dynamic";
+
+const CursorSpotlight = dynamic(
+  () => import("@/components/canvas/CursorSpotlight"),
+  { ssr: false }
+);
 
 const inter = Inter({
   subsets: ["latin"],
@@ -49,6 +55,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${syne.variable}`}>
       <body className="font-body bg-[#020617] text-slate-100 overflow-x-hidden">
+        <CursorSpotlight />
         {children}
       </body>
     </html>

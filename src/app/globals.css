@@ -135,6 +135,34 @@ body {
 .section-pad { padding-top: 6rem; padding-bottom: 6rem; }
 @media (min-width: 1024px) { .section-pad { padding-top: 8rem; padding-bottom: 8rem; } }
 
+/* ── Bento glass card ── */
+.bento-card {
+  background: rgba(255,255,255,0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 1rem;
+}
+
+/* ── Neon border glow on hover ── */
+.neon-border {
+  position: relative;
+  overflow: hidden;
+}
+.neon-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--rainbow-gradient);
+  background-size: 300% 300%;
+  animation: rainbow-shift 4s linear infinite;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.neon-border:hover::before { opacity: 0.5; }
+
 /* Animated gradient button */
 .btn-rainbow {
   background: var(--rainbow-gradient);

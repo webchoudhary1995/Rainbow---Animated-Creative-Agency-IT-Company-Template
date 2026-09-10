@@ -25,70 +25,60 @@ interface RainCanvasProps {
 }
 
 export default function RainCanvas({
-  density = 1.2,
+  density = 1,
   className = "",
-  mouseInteractive = true,
+  mouseInteractive = false,
 }: RainCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const mouse = useRef({ x: -999, y: -999 });
-  const animRef = useRef<number>(0);
+  const animRef   = useRef(0);
+  const mouse     = useRef({ x: -999, y: -999 });
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctxRaw = canvas.getContext("2d");
-    if (!ctxRaw) return;
-    const ctx: CanvasRenderingContext2D = ctxRaw;
+    const raw = canvas.getContext("2d");
+    if (!raw) return;
+    const ctx: CanvasRenderingContext2D = raw;
 
     let drops: Drop[] = [];
     let W = 0, H = 0;
 
     function resize() {
-      if (!canvas) return;
-      W = canvas.width  = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
-      initDrops();
-    }
-
-    function initDrops() {
-      const count = Math.floor((W / 100) * density * 12);
-      drops = Array.from({ length: count }, () =>
-        makeDropAt(Math.random() * W, Math.random() * H)
-      );
-    }
-
-    function makeDropAt(x: number, y: number): Drop {
-      return {
-        x, y,
-        speed:    2 + Math.random() * 5,
-        length:   15 + Math.random() * 35,
-        opacity:  0.15 + Math.random() * 0.55,
+      W = canvas!.width  = canvas!.offsetWidth;
+      H = canvas!.height = canvas!.offsetHeight;
+      const count = Math.floor((W / 100) * density * 10);
+      drops = Array.from({ length: count }, () => ({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        speed:    2.5 + Math.random() * 4,
+        length:   12 + Math.random() * 28,
+        opacity:  0.08 + Math.random() * 0.22,
         colorIdx: Math.floor(Math.random() * COLORS.length),
-      };
+      }));
     }
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      ctx.lineWidth = 1;
 
       for (const d of drops) {
         if (mouseInteractive) {
           const dx = d.x - mouse.current.x;
           const dy = d.y - mouse.current.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 120) d.x += (dx / dist) * 0.8;
+          if (dist < 100) d.x += (dx / dist) * 0.5;
         }
 
         const col = COLORS[d.colorIdx];
-        const grad = ctx.createLinearGradient(d.x, d.y, d.x - 2, d.y + d.length);
-        grad.addColorStop(0,   col + "0)");
-        grad.addColorStop(0.3, col + d.opacity + ")");
-        grad.addColorStop(1,   col + "0)");
+        const g = ctx.createLinearGradient(d.x, d.y, d.x - 1.5, d.y + d.length);
+        g.addColorStop(0,   col + "0)");
+        g.addColorStop(0.4, col + d.opacity + ")");
+        g.addColorStop(1,   col + "0)");
 
         ctx.beginPath();
         ctx.moveTo(d.x, d.y);
-        ctx.lineTo(d.x - 2, d.y + d.length);
-        ctx.strokeStyle = grad;
+        ctx.lineTo(d.x - 1.5, d.y + d.length);
+        ctx.strokeStyle = g;
+        ctx.lineWidth = 1;
         ctx.stroke();
 
         d.y += d.speed;
@@ -98,6 +88,7 @@ export default function RainCanvas({
           d.colorIdx = Math.floor(Math.random() * COLORS.length);
         }
       }
+
       animRef.current = requestAnimationFrame(draw);
     }
 
@@ -110,12 +101,12 @@ export default function RainCanvas({
       const rect = canvas.getBoundingClientRect();
       mouse.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     };
-    if (mouseInteractive) canvas.addEventListener("mousemove", onMouseMove);
+    if (mouseInteractive) window.addEventListener("mousemove", onMouseMove, { passive: true });
 
     return () => {
       cancelAnimationFrame(animRef.current);
       ro.disconnect();
-      if (mouseInteractive) canvas.removeEventListener("mousemove", onMouseMove);
+      if (mouseInteractive) window.removeEventListener("mousemove", onMouseMove);
     };
   }, [density, mouseInteractive]);
 
