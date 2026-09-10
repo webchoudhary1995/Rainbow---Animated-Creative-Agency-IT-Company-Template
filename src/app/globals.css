@@ -70,24 +70,39 @@ body {
   color: #fff;
 }
 
-/* ── Scrollbar ── */
+/* ── Scrollbar — rainbow thumb ── */
 ::-webkit-scrollbar             { width: 6px; }
 ::-webkit-scrollbar-track       { background: #0a0f1e; }
-::-webkit-scrollbar-thumb       { background: var(--rain-indigo); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--rain-violet); }
+::-webkit-scrollbar-thumb       {
+  background: linear-gradient(180deg,#FF3B3B,#FF8C00,#FFD700,#00C853,#0288D1,#7C4DFF);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg,#FF3B3B,#FF8C00,#FFD700,#00C853,#0288D1,#7C4DFF);
+  opacity: 0.9;
+}
 
 /* ─────────────────────────────────────────────
    UTILITY CLASSES
 ───────────────────────────────────────────── */
 
-/* Rainbow text */
+/* Rainbow text — vivid, fast shift */
 .rainbow-text {
-  background: var(--rainbow-gradient);
-  background-size: 300% 300%;
+  background: linear-gradient(
+    135deg,
+    #FF3B3B 0%,
+    #FF8C00 16%,
+    #FFD700 32%,
+    #00C853 48%,
+    #0288D1 64%,
+    #5C6BC0 80%,
+    #7C4DFF 100%
+  );
+  background-size: 200% 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: rainbow-shift 6s linear infinite;
+  animation: rainbow-shift 4s linear infinite;
 }
 
 /* Rainbow border (via outline or box-shadow) */

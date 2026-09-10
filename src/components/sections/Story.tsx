@@ -57,16 +57,6 @@ export default function Story() {
             }}
           >
             <DigitalTree progress={progress} />
-
-            {/* Progress bar */}
-            <div className="absolute bottom-4 left-5 right-5 h-0.5 rounded-full overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.06)" }}>
-              <motion.div className="h-full rounded-full"
-                style={{ background: "linear-gradient(90deg,#FF3B3B,#FFD700,#00C853,#0288D1,#7C4DFF)", width: `${progress * 100}%` }} />
-            </div>
-            <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-[10px] text-slate-600 whitespace-nowrap tracking-widest uppercase">
-              Scroll to watch us grow
-            </p>
           </motion.div>
 
           {/* Timeline */}
